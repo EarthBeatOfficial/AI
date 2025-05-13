@@ -5,6 +5,7 @@ import requests
 import json
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import Optional
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,15 +18,18 @@ print(GOOGLE_GEMINI_API_KEY)
 
 # ✅ Gemini 모델 설정
 genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
-model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
+model = genai.GenerativeModel(model_name="models/gemini-2.0-flash")
 
 # ✅ 산책로 이름 추천
 def get_trail_name_from_gemini(distance, theme, latitude, longitude):
+    # If distance is None, modify the prompt to request a random distance recommendation
+    distance_text = f"{distance}km" if distance is not None else "a suitable distance"
+    
     prompt = f"""
     You are a trail recommendation expert.
     User's starting location is at latitude: {latitude}, longitude: {longitude}.
     Desired conditions are:
-    - Distance: {distance} (this is the total walking distance)
+    - Distance: {distance_text} (this is the total walking distance)
     - Theme: {theme} (this should strongly influence the type of trail and points of interest)
 
     Please respond with ONLY the trail name in text format.
@@ -219,7 +223,7 @@ def convert_to_geojson_line(coordinates):
 app = FastAPI()
 
 class TrailRequest(BaseModel):
-    distance: str
+    distance: Optional[str] = None
     theme: str
     latitude: float
     longitude: float
@@ -244,7 +248,7 @@ def get_coordinates_for_waypoints(waypoints):
 
             if data["status"] == "OK":
                 location = data["results"][0]["geometry"]["location"]
-                coordinates.append([location["lng"], location["lat"]])
+                coordinates.append([location["lat"], location["lng"]])
             else:
                 print(f"❌ Geocoding error for {waypoint}: {data['status']}")
                 if "error_message" in data:
